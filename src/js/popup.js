@@ -1,27 +1,30 @@
 import "../css/popup.css";
 
 const turnItOnButton = document.querySelector('#turn-it-on')
+const storage = chrome.storage.local
 
-const turnItOn = () => {
-  chrome.tabs.executeScript(null, {
-    file: 'contentScript.bundle.js',
+storage.get('isActive', ({ isActive }) => {
+  turnItOnButton.checked = isActive
+})
+
+const toggleActiveState = () => {
+  storage.get('isActive', ({ isActive }) => {
+    storage.set({ 'isActive': !isActive }, n => n)
+    turnItOnButton.classList.toggle('active')
+    chrome.tabs.query({active: true, currentWindow: true}, ([tab]) => {
+      if (!isActive) {
+        chrome.tabs.sendMessage(tab.id, { type: 'GOOD_NEWS' }, (response) => {
+          console.log('popup', response)
+        })
+      } else {
+        chrome.tabs.sendMessage(tab.id, { type: 'BAD_NEWS' }, (response) => {
+          console.log('popup', response)
+        })
+      }
+    })
   })
 }
 
-chrome.runtime.onMessage.addListener(({ type }, sender, response) => {
-  if (type === 'GOOD_NEWS_SCRIPT_LOADED') {
-    fetch('http://54.77.113.203:65437/v1/subs/')
-    .then(res => res.json())
-    .then(json => {
-      console.log('posting...', json)
-      chrome.tabs.query({active: true, currentWindow: true}, ([tab]) => {
-        chrome.tabs.sendMessage(tab.id, { type: 'GOOD_NEWS', payload: json.data }, (response) => {
-          console.log(response)
-        })
-      })
-    })
-  }
-})
+turnItOnButton.removeEventListener('click', toggleActiveState)
+turnItOnButton.addEventListener('click', toggleActiveState)
 
-turnItOnButton.removeEventListener('click', turnItOn)
-turnItOnButton.addEventListener('click', turnItOn)
